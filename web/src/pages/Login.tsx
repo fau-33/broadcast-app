@@ -24,18 +24,27 @@ export function Login() {
         await signInWithEmailAndPassword(auth, email, password);
       }
     } catch (err: unknown) {
-      const firebaseError = err as { code?: string };
+      console.error("Erro do Firebase:", err);
+
+      const firebaseError = err as { code?: string; message?: string };
       if (
         firebaseError.code === "auth/invalid-credential" ||
-        firebaseError.code === "auth/wrong-password"
+        firebaseError.code === "auth/wrong-password" ||
+        firebaseError.code === "auth/user-not-found"
       ) {
         setError("E-mail ou senha incorretos.");
       } else if (firebaseError.code === "auth/email-already-in-use") {
         setError("Este e-mail já está em uso.");
       } else if (firebaseError.code === "auth/weak-password") {
         setError("A senha deve ter no mínimo 6 caracteres.");
+      } else if (firebaseError.code === "auth/operation-not-allowed") {
+        setError(
+          "O login por E-mail/Senha precisa ser ativado no Firebase Console.",
+        );
       } else {
-        setError("Ocorreu um erro ao autenticar. Tente novamente.");
+        setError(
+          `Erro (${firebaseError.code || "desconhecido"}): verifique o console.`,
+        );
       }
     } finally {
       setLoading(false);

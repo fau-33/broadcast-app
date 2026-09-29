@@ -4,6 +4,7 @@ import { AuthProvider } from "./contexts/AuthContext";
 import { useAuth } from "./hooks/useAuth";
 import { Login } from "./pages/Login";
 import { Dashboard } from "./pages/Dashboard";
+import "./index.css";
 
 function PrivateRoute({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
