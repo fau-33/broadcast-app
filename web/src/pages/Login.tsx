@@ -1,9 +1,11 @@
-import { useState, type FormEvent } from "react";
+import { useState, useEffect, type FormEvent } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
 } from "firebase/auth";
 import { auth } from "../config/firebase";
+import { useAuth } from "../hooks/useAuth";
 
 export function Login() {
   const [isRegister, setIsRegister] = useState(false);
@@ -11,6 +13,16 @@ export function Login() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const navigate = useNavigate();
+  const { user } = useAuth();
+
+  // Se o usuário já estiver logado, redireciona para a Dashboard
+  useEffect(() => {
+    if (user) {
+      navigate("/");
+    }
+  }, [user, navigate]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -23,6 +35,7 @@ export function Login() {
       } else {
         await signInWithEmailAndPassword(auth, email, password);
       }
+      navigate("/");
     } catch (err: unknown) {
       console.error("Erro do Firebase:", err);
 
@@ -34,7 +47,7 @@ export function Login() {
       ) {
         setError("E-mail ou senha incorretos.");
       } else if (firebaseError.code === "auth/email-already-in-use") {
-        setError("Este e-mail já está em uso.");
+        setError("Este e-mail já está em uso. Clique em 'Fazer Login'.");
       } else if (firebaseError.code === "auth/weak-password") {
         setError("A senha deve ter no mínimo 6 caracteres.");
       } else if (firebaseError.code === "auth/operation-not-allowed") {
