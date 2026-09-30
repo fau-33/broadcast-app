@@ -28,10 +28,19 @@ export async function getContacts(userId: string): Promise<Contact[]> {
 export async function createContact(
   contactData: Omit<Contact, "id" | "createdAt">,
 ): Promise<string> {
-  const docRef = await addDoc(collection(db, COLLECTION_NAME), {
-    ...contactData,
+  // Monta objeto sem valores 'undefined'
+  const dataToSave: Record<string, unknown> = {
+    name: contactData.name,
+    phone: contactData.phone,
+    userId: contactData.userId,
     createdAt: new Date().toISOString(),
-  });
+  };
+
+  if (contactData.email && contactData.email.trim() !== "") {
+    dataToSave.email = contactData.email.trim();
+  }
+
+  const docRef = await addDoc(collection(db, COLLECTION_NAME), dataToSave);
   return docRef.id;
 }
 
@@ -40,7 +49,13 @@ export async function updateContact(
   contactData: Partial<Omit<Contact, "id" | "userId" | "createdAt">>,
 ) {
   const docRef = doc(db, COLLECTION_NAME, id);
-  await updateDoc(docRef, contactData);
+  const dataToUpdate: Record<string, unknown> = {};
+
+  if (contactData.name !== undefined) dataToUpdate.name = contactData.name;
+  if (contactData.phone !== undefined) dataToUpdate.phone = contactData.phone;
+  if (contactData.email !== undefined) dataToUpdate.email = contactData.email;
+
+  await updateDoc(docRef, dataToUpdate);
 }
 
 export async function deleteContact(id: string) {

@@ -25,7 +25,6 @@ export function Contacts() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
-  // Busca inicial protegida contra vazamento de estado
   useEffect(() => {
     if (authLoading) return;
 
@@ -70,6 +69,8 @@ export function Contacts() {
     e.preventDefault();
     const trimmedName = name.trim();
     const trimmedPhone = phone.trim();
+    const trimmedEmail = email.trim();
+
     if (!trimmedName || !trimmedPhone || submitting || !user) return;
 
     setSubmitting(true);
@@ -80,7 +81,7 @@ export function Contacts() {
         await updateContact(editingContact.id, {
           name: trimmedName,
           phone: trimmedPhone,
-          email: email.trim() || undefined,
+          email: trimmedEmail,
         });
         setContacts((prev) =>
           prev.map((c) =>
@@ -89,7 +90,7 @@ export function Contacts() {
                   ...c,
                   name: trimmedName,
                   phone: trimmedPhone,
-                  email: email.trim(),
+                  email: trimmedEmail,
                 }
               : c,
           ),
@@ -99,14 +100,15 @@ export function Contacts() {
         const newId = await createContact({
           name: trimmedName,
           phone: trimmedPhone,
-          email: email.trim() || undefined,
+          email: trimmedEmail,
           userId: user.uid,
         });
+
         const newContact: Contact = {
           id: typeof newId === "string" ? newId : Date.now().toString(),
           name: trimmedName,
           phone: trimmedPhone,
-          email: email.trim() || undefined,
+          email: trimmedEmail,
           userId: user.uid,
           createdAt: new Date().toISOString(),
         };
@@ -117,7 +119,7 @@ export function Contacts() {
       setEmail("");
     } catch (err) {
       console.error("Erro ao salvar contato:", err);
-      setError("Não foi possível salvar o contato.");
+      setError("Não foi possível salvar o contato. Verifique os dados.");
     } finally {
       setSubmitting(false);
     }
@@ -208,7 +210,7 @@ export function Contacts() {
         </header>
 
         {error && (
-          <div className="flex items-center gap-3 bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-xl text-sm">
+          <div className="flex items-center gap-3 bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-xl text-sm animate-fade-in">
             {error}
           </div>
         )}

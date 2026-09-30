@@ -6,6 +6,7 @@ import { Login } from "./pages/Login";
 import { Dashboard } from "./pages/Dashboard";
 import { Connections } from "./pages/Connections";
 import { Contacts } from "./pages/Contacts";
+import { Broadcasts } from "./pages/Broadcasts";
 import "./index.css";
 
 function PrivateRoute({ children }: { children: ReactNode }) {
@@ -70,6 +71,14 @@ export function App() {
             element={
               <PrivateRoute>
                 <Contacts />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/broadcasts"
+            element={
+              <PrivateRoute>
+                <Broadcasts />
               </PrivateRoute>
             }
           />

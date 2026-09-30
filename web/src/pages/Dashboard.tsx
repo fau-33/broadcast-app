@@ -1,10 +1,58 @@
+import { useState, useEffect } from "react";
 import { signOut } from "firebase/auth";
 import { Link } from "react-router-dom";
 import { auth } from "../config/firebase";
 import { useAuth } from "../hooks/useAuth";
+import { getConnections } from "../services/connectionService";
+import { getContacts } from "../services/contactService";
+import { getBroadcasts } from "../services/broadcastService";
 
 export function Dashboard() {
   const { user } = useAuth();
+
+  const [activeConnectionsCount, setActiveConnectionsCount] = useState(0);
+  const [totalContactsCount, setTotalContactsCount] = useState(0);
+  const [scheduledMessagesCount, setScheduledMessagesCount] = useState(0);
+  const [sentMessagesCount, setSentMessagesCount] = useState(0);
+
+  useEffect(() => {
+    if (!user) return;
+
+    let isMounted = true;
+
+    const fetchMetrics = async () => {
+      try {
+        const [conns, conts, broadcasts] = await Promise.all([
+          getConnections(user.uid),
+          getContacts(user.uid),
+          getBroadcasts(user.uid),
+        ]);
+
+        if (isMounted) {
+          const activeConns = conns.filter(
+            (c) => c.status === "connected",
+          ).length;
+          const scheduled = broadcasts.filter(
+            (b) => b.status === "scheduled",
+          ).length;
+          const sent = broadcasts.filter((b) => b.status === "sent").length;
+
+          setActiveConnectionsCount(activeConns);
+          setTotalContactsCount(conts.length);
+          setScheduledMessagesCount(scheduled);
+          setSentMessagesCount(sent);
+        }
+      } catch (err) {
+        console.error("Erro ao carregar métricas do dashboard:", err);
+      }
+    };
+
+    fetchMetrics();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [user]);
 
   const handleLogout = async () => {
     await signOut(auth);
@@ -51,15 +99,17 @@ export function Dashboard() {
           </p>
         </div>
 
-        {/* Métricas / KPIs */}
+        {/* Métricas / KPIs com Dados Dinâmicos */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-slate-800 p-5 rounded-xl border border-slate-700">
             <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">
               Conexões Ativas
             </span>
-            <p className="text-2xl font-bold text-white mt-2">0</p>
+            <p className="text-2xl font-bold text-white mt-2">
+              {activeConnectionsCount}
+            </p>
             <span className="text-xs text-slate-500 mt-1 block">
-              Canais cadastrados
+              Sessões de WhatsApp ativas
             </span>
           </div>
 
@@ -67,7 +117,9 @@ export function Dashboard() {
             <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">
               Total de Contatos
             </span>
-            <p className="text-2xl font-bold text-white mt-2">0</p>
+            <p className="text-2xl font-bold text-white mt-2">
+              {totalContactsCount}
+            </p>
             <span className="text-xs text-slate-500 mt-1 block">
               Destinatários salvos
             </span>
@@ -77,7 +129,9 @@ export function Dashboard() {
             <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">
               Mensagens Agendadas
             </span>
-            <p className="text-2xl font-bold text-amber-400 mt-2">0</p>
+            <p className="text-2xl font-bold text-amber-400 mt-2">
+              {scheduledMessagesCount}
+            </p>
             <span className="text-xs text-slate-500 mt-1 block">
               Aguardando envio
             </span>
@@ -87,7 +141,9 @@ export function Dashboard() {
             <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">
               Enviadas com Sucesso
             </span>
-            <p className="text-2xl font-bold text-emerald-400 mt-2">0</p>
+            <p className="text-2xl font-bold text-emerald-400 mt-2">
+              {sentMessagesCount}
+            </p>
             <span className="text-xs text-slate-500 mt-1 block">
               Total disparado
             </span>
@@ -119,7 +175,7 @@ export function Dashboard() {
               </span>
             </Link>
 
-            {/* Módulo Contatos (LINK ATIVADO) */}
+            {/* Módulo Contatos */}
             <Link
               to="/contacts"
               className="bg-slate-800 p-6 rounded-xl border border-slate-700 hover:border-blue-500/50 transition-colors flex flex-col justify-between cursor-pointer group"
@@ -138,21 +194,24 @@ export function Dashboard() {
               </span>
             </Link>
 
-            {/* Módulo Disparos (Em breve) */}
-            <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 flex flex-col justify-between opacity-60">
+            {/* Módulo Disparos & Agendamentos (ATIVO) */}
+            <Link
+              to="/broadcasts"
+              className="bg-slate-800 p-6 rounded-xl border border-slate-700 hover:border-blue-500/50 transition-colors flex flex-col justify-between cursor-pointer group"
+            >
               <div>
                 <div className="text-2xl mb-3">💬</div>
-                <h4 className="font-semibold text-lg mb-1">
+                <h4 className="font-semibold text-lg mb-1 group-hover:text-blue-400 transition-colors">
                   Disparos & Agendamentos
                 </h4>
                 <p className="text-xs text-slate-400 mb-4">
                   Crie textos, escolha os destinatários e agende os envios.
                 </p>
               </div>
-              <span className="text-xs font-semibold text-slate-500">
-                Em breve →
+              <span className="text-xs font-semibold text-blue-400">
+                Acessar Módulo →
               </span>
-            </div>
+            </Link>
           </div>
         </div>
       </main>
