@@ -16,16 +16,17 @@ export function Connections() {
   const { user, loading: authLoading } = useAuth();
   const [connections, setConnections] = useState<Connection[]>([]);
   const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
   const [editingConnection, setEditingConnection] = useState<Connection | null>(
     null,
   );
   const [selectedForQR, setSelectedForQR] = useState<Connection | null>(null);
+  const [connectionToDelete, setConnectionToDelete] =
+    useState<Connection | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const [connectionToDelete, setConnectionToDelete] =
-    useState<Connection | null>(null);
 
   // Busca inicial de dados sem causar renderizações síncronas em cascata
   useEffect(() => {
@@ -71,6 +72,7 @@ export function Connections() {
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const trimmedName = name.trim();
+    const trimmedPhone = phone.trim();
     if (!trimmedName || submitting || !user) return;
 
     setSubmitting(true);
@@ -79,21 +81,28 @@ export function Connections() {
     try {
       if (editingConnection) {
         // 1. Atualiza no banco
-        await updateConnection(editingConnection.id, trimmedName);
+        await updateConnection(editingConnection.id, trimmedName, trimmedPhone);
         // 2. Atualiza na tela (Otimista)
         setConnections((prev) =>
           prev.map((c) =>
-            c.id === editingConnection.id ? { ...c, name: trimmedName } : c,
+            c.id === editingConnection.id
+              ? { ...c, name: trimmedName, phone: trimmedPhone }
+              : c,
           ),
         );
         setEditingConnection(null);
       } else {
         // 1. Salva no banco
-        const newId = await createConnection(trimmedName, user.uid);
+        const newId = await createConnection(
+          trimmedName,
+          user.uid,
+          trimmedPhone,
+        );
         // 2. Cria na tela (Otimista)
         const newConn: Connection = {
           id: typeof newId === "string" ? newId : Date.now().toString(),
           name: trimmedName,
+          phone: trimmedPhone,
           status: "disconnected",
           userId: user.uid,
           createdAt: new Date().toISOString(),
@@ -101,6 +110,7 @@ export function Connections() {
         setConnections((prev) => [newConn, ...prev]);
       }
       setName("");
+      setPhone("");
     } catch (err) {
       console.error("Erro ao salvar:", err);
       setError("Não foi possível salvar a conexão.");
@@ -113,13 +123,18 @@ export function Connections() {
   const handleConnectStatus = async (
     connId: string,
     status: "connected" | "disconnected",
+    connectedPhone?: string,
   ) => {
     setConnections((prev) =>
-      prev.map((c) => (c.id === connId ? { ...c, status } : c)),
+      prev.map((c) =>
+        c.id === connId
+          ? { ...c, status, phone: connectedPhone ?? c.phone }
+          : c,
+      ),
     );
 
     try {
-      await updateConnectionStatus(connId, status);
+      await updateConnectionStatus(connId, status, connectedPhone);
     } catch (err) {
       console.error("Erro ao alterar status:", err);
       setError("Erro ao sincronizar status com o servidor.");
@@ -132,10 +147,6 @@ export function Connections() {
   };
 
   // Ação de Excluir
-  const handleDelete = (conn: Connection) => {
-    setConnectionToDelete(conn);
-  };
-
   const confirmDelete = async () => {
     if (!connectionToDelete) return;
 
@@ -156,11 +167,13 @@ export function Connections() {
   const startEditing = (conn: Connection) => {
     setEditingConnection(conn);
     setName(conn.name);
+    setPhone(conn.phone || "");
   };
 
   const cancelEditing = () => {
     setEditingConnection(null);
     setName("");
+    setPhone("");
     setError("");
   };
 
@@ -230,18 +243,26 @@ export function Connections() {
         )}
 
         {/* Formulário */}
-        <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-1.5 rounded-2xl shadow-lg">
+        <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-3 rounded-2xl shadow-lg">
           <form
             onSubmit={handleSubmit}
-            className="flex flex-col sm:flex-row gap-2"
+            className="flex flex-col sm:flex-row gap-3"
           >
             <input
               type="text"
               required
-              placeholder="Ex: WhatsApp Suporte VIP..."
+              placeholder="Nome (Ex: Suporte VIP)"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="flex-1 bg-slate-900/50 px-5 py-3.5 rounded-xl border border-transparent focus:border-blue-500/50 focus:bg-slate-900 outline-none text-white placeholder-slate-500 transition-all"
+              className="flex-1 bg-slate-900/50 px-4 py-3.5 rounded-xl border border-slate-700/50 focus:border-blue-500/50 focus:bg-slate-900 outline-none text-white placeholder-slate-500 transition-all text-sm"
+            />
+
+            <input
+              type="text"
+              placeholder="Número (Ex: +55 11 99999-8888)"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              className="flex-1 bg-slate-900/50 px-4 py-3.5 rounded-xl border border-slate-700/50 focus:border-blue-500/50 focus:bg-slate-900 outline-none text-white placeholder-slate-500 transition-all text-sm"
             />
 
             <div className="flex gap-2">
@@ -249,7 +270,7 @@ export function Connections() {
                 <button
                   type="button"
                   onClick={cancelEditing}
-                  className="px-5 py-3.5 bg-slate-700 hover:bg-slate-600 text-white font-medium rounded-xl transition-colors flex items-center gap-2"
+                  className="px-5 py-3.5 bg-slate-700 hover:bg-slate-600 text-white font-medium rounded-xl transition-colors text-sm flex items-center gap-2"
                 >
                   Cancelar
                 </button>
@@ -258,7 +279,7 @@ export function Connections() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="flex-1 sm:flex-none px-6 py-3.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium rounded-xl transition-all shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2 min-w-[140px]"
+                className="flex-1 sm:flex-none px-6 py-3.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium rounded-xl transition-all shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2 text-sm min-w-[140px]"
               >
                 {submitting ? (
                   <svg
@@ -394,8 +415,13 @@ export function Connections() {
                         </svg>
                       </div>
                       <div>
-                        <h3 className="font-medium text-white text-base">
+                        <h3 className="font-medium text-white text-base flex items-center gap-2">
                           {conn.name}
+                          {conn.phone && (
+                            <span className="text-xs bg-slate-900 text-slate-400 px-2 py-0.5 rounded-md border border-slate-700 font-normal">
+                              {conn.phone}
+                            </span>
+                          )}
                         </h3>
                         <div className="flex items-center gap-2 mt-1">
                           <span className="relative flex h-2.5 w-2.5">
@@ -482,8 +508,9 @@ export function Connections() {
                           />
                         </svg>
                       </button>
+
                       <button
-                        onClick={() => handleDelete(conn)}
+                        onClick={() => setConnectionToDelete(conn)}
                         className="p-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg transition-colors"
                         title="Excluir"
                       >
@@ -510,14 +537,14 @@ export function Connections() {
         </div>
       </div>
 
-      {/* Modal de QR Code */}
+      {/* Modal QR Code */}
       {selectedForQR && (
         <QRCodeModal
           connectionName={selectedForQR.name}
-          onConnect={async () => {
+          onConnect={async (connectedPhone) => {
             const id = selectedForQR.id;
             setSelectedForQR(null);
-            if (id) await handleConnectStatus(id, "connected");
+            if (id) await handleConnectStatus(id, "connected", connectedPhone);
           }}
           onClose={() => setSelectedForQR(null)}
         />
@@ -527,10 +554,7 @@ export function Connections() {
       {connectionToDelete && (
         <ConfirmationModal
           title="Excluir Conexão"
-          message={`Tem certeza que deseja excluir "${connectionToDelete.name}"? Esta ação não pode ser desfeita.`}
-          confirmText="Excluir"
-          cancelText="Cancelar"
-          variant="danger"
+          message={`Tem certeza que deseja excluir o canal "${connectionToDelete.name}"? Esta ação não pode ser desfeita.`}
           onConfirm={confirmDelete}
           onCancel={() => setConnectionToDelete(null)}
         />

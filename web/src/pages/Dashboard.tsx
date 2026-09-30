@@ -11,7 +11,7 @@ export function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 text-white flex flex-col">
+    <div className="min-h-screen bg-slate-900 text-white flex flex-col font-sans">
       {/* Topbar / Header */}
       <header className="bg-slate-800 border-b border-slate-700 px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -119,22 +119,27 @@ export function Dashboard() {
               </span>
             </Link>
 
-            {/* Módulo Contatos */}
-            <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 hover:border-blue-500/50 transition-colors flex flex-col justify-between">
+            {/* Módulo Contatos (LINK ATIVADO) */}
+            <Link
+              to="/contacts"
+              className="bg-slate-800 p-6 rounded-xl border border-slate-700 hover:border-blue-500/50 transition-colors flex flex-col justify-between cursor-pointer group"
+            >
               <div>
                 <div className="text-2xl mb-3">👥</div>
-                <h4 className="font-semibold text-lg mb-1">Contatos</h4>
+                <h4 className="font-semibold text-lg mb-1 group-hover:text-blue-400 transition-colors">
+                  Contatos
+                </h4>
                 <p className="text-xs text-slate-400 mb-4">
                   Importe e estruture sua lista de contatos para transmissões.
                 </p>
               </div>
-              <span className="text-xs font-semibold text-slate-500">
-                Em breve →
+              <span className="text-xs font-semibold text-blue-400">
+                Acessar Módulo →
               </span>
-            </div>
+            </Link>
 
-            {/* Módulo Disparos */}
-            <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 hover:border-blue-500/50 transition-colors flex flex-col justify-between">
+            {/* Módulo Disparos (Em breve) */}
+            <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 flex flex-col justify-between opacity-60">
               <div>
                 <div className="text-2xl mb-3">💬</div>
                 <h4 className="font-semibold text-lg mb-1">

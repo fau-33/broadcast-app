@@ -7,40 +7,35 @@ import {
   doc,
   query,
   where,
-  serverTimestamp,
-  Timestamp,
 } from "firebase/firestore";
 import { db } from "../config/firebase";
 import type { Connection } from "../types/connection";
 
-export async function getConnections(userId: string): Promise<Connection[]> {
-  const q = query(collection(db, "connections"), where("userId", "==", userId));
-  const querySnapshot = await getDocs(q);
+const COLLECTION_NAME = "connections";
 
-  return querySnapshot.docs.map((docSnap) => {
-    const data = docSnap.data();
-    return {
-      id: docSnap.id,
-      name: data.name || "",
-      status: data.status || "disconnected",
-      userId: data.userId || userId,
-      createdAt:
-        data.createdAt instanceof Timestamp
-          ? data.createdAt.toDate().toISOString()
-          : data.createdAt || new Date().toISOString(),
-    };
-  });
+export async function getConnections(userId: string): Promise<Connection[]> {
+  const q = query(
+    collection(db, COLLECTION_NAME),
+    where("userId", "==", userId),
+  );
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map((docSnap) => ({
+    id: docSnap.id,
+    ...docSnap.data(),
+  })) as Connection[];
 }
 
 export async function createConnection(
   name: string,
   userId: string,
+  phone?: string,
 ): Promise<string> {
-  const docRef = await addDoc(collection(db, "connections"), {
+  const docRef = await addDoc(collection(db, COLLECTION_NAME), {
     name,
-    userId,
+    phone: phone || "",
     status: "disconnected",
-    createdAt: serverTimestamp(),
+    userId,
+    createdAt: new Date().toISOString(),
   });
   return docRef.id;
 }
@@ -48,20 +43,26 @@ export async function createConnection(
 export async function updateConnection(
   id: string,
   name: string,
-): Promise<void> {
-  const connectionRef = doc(db, "connections", id);
-  await updateDoc(connectionRef, { name });
+  phone?: string,
+) {
+  const docRef = doc(db, COLLECTION_NAME, id);
+  await updateDoc(docRef, { name, phone: phone || "" });
 }
 
 export async function updateConnectionStatus(
   id: string,
   status: "connected" | "disconnected",
-): Promise<void> {
-  const connectionRef = doc(db, "connections", id);
-  await updateDoc(connectionRef, { status });
+  phone?: string,
+) {
+  const docRef = doc(db, COLLECTION_NAME, id);
+  const dataToUpdate: Record<string, unknown> = { status };
+  if (phone !== undefined) {
+    dataToUpdate.phone = phone;
+  }
+  await updateDoc(docRef, dataToUpdate);
 }
 
-export async function deleteConnection(id: string): Promise<void> {
-  const connectionRef = doc(db, "connections", id);
-  await deleteDoc(connectionRef);
+export async function deleteConnection(id: string) {
+  const docRef = doc(db, COLLECTION_NAME, id);
+  await deleteDoc(docRef);
 }

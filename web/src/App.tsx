@@ -5,6 +5,7 @@ import { useAuth } from "./hooks/useAuth";
 import { Login } from "./pages/Login";
 import { Dashboard } from "./pages/Dashboard";
 import { Connections } from "./pages/Connections";
+import { Contacts } from "./pages/Contacts";
 import "./index.css";
 
 function PrivateRoute({ children }: { children: ReactNode }) {
@@ -61,6 +62,14 @@ export function App() {
             element={
               <PrivateRoute>
                 <Connections />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/contacts"
+            element={
+              <PrivateRoute>
+                <Contacts />
               </PrivateRoute>
             }
           />
