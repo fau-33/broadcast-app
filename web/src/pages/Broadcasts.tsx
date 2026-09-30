@@ -7,6 +7,7 @@ import { getContacts } from "../services/contactService";
 import {
   getBroadcasts,
   createBroadcast,
+  updateBroadcast,
   deleteBroadcast,
 } from "../services/broadcastService";
 import type { Connection } from "../types/connection";
@@ -20,12 +21,20 @@ export function Broadcasts() {
   const [connections, setConnections] = useState<Connection[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
 
-  // Formulário
+  // Filtro do Histórico ("all" | "sent" | "scheduled")
+  const [historyFilter, setHistoryFilter] = useState<
+    "all" | "sent" | "scheduled"
+  >("all");
+
+  // Formulário (Criação/Edição)
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
   const [selectedConnectionId, setSelectedConnectionId] = useState("");
   const [sendOption, setSendOption] = useState<"now" | "schedule">("now");
   const [scheduledDate, setScheduledDate] = useState("");
+  const [selectedContactIds, setSelectedContactIds] = useState<string[]>([]);
+  const [selectAllContacts, setSelectAllContacts] = useState(true);
 
   const [broadcastToDelete, setBroadcastToDelete] = useState<Broadcast | null>(
     null,
@@ -50,7 +59,6 @@ export function Broadcasts() {
 
     const fetchAllData = async () => {
       try {
-        // Busca resiliente: se um falhar, os outros carregam normalmente
         const [bData, cData, ctData] = await Promise.allSettled([
           getBroadcasts(user.uid),
           getConnections(user.uid),
@@ -69,7 +77,9 @@ export function Broadcasts() {
           setConnections(loadedConnections);
           setContacts(loadedContacts);
 
-          // Seleciona automaticamente o primeiro canal disponível/conectado
+          // Seleciona todos os contatos por padrão
+          setSelectedContactIds(loadedContacts.map((c) => c.id));
+
           const activeConns = loadedConnections.filter(
             (c) => c.status === "connected",
           );
@@ -98,17 +108,80 @@ export function Broadcasts() {
     };
   }, [user, authLoading]);
 
+  // Gerencia seleção de contatos individual ou em massa
+  const handleToggleSelectAll = (checked: boolean) => {
+    setSelectAllContacts(checked);
+    if (checked) {
+      setSelectedContactIds(contacts.map((c) => c.id));
+    } else {
+      setSelectedContactIds([]);
+    }
+  };
+
+  const handleToggleContact = (contactId: string) => {
+    setSelectedContactIds((prev) => {
+      const exists = prev.includes(contactId);
+      let updated: string[];
+      if (exists) {
+        updated = prev.filter((id) => id !== contactId);
+      } else {
+        updated = [...prev, contactId];
+      }
+      setSelectAllContacts(updated.length === contacts.length);
+      return updated;
+    });
+  };
+
+  const handleEditBroadcast = (b: Broadcast) => {
+    setEditingId(b.id);
+    setTitle(b.title);
+    setMessage(b.message);
+    setSelectedConnectionId(b.connectionId);
+    setSelectedContactIds(b.recipientIds || []);
+    setSelectAllContacts(
+      b.recipientIds ? b.recipientIds.length === contacts.length : true,
+    );
+
+    if (b.status === "scheduled" && b.scheduledAt) {
+      setSendOption("schedule");
+      const d = new Date(b.scheduledAt);
+      if (!isNaN(d.getTime())) {
+        const tzOffset = d.getTimezoneOffset() * 60000;
+        const localISOTime = new Date(d.getTime() - tzOffset)
+          .toISOString()
+          .slice(0, 16);
+        setScheduledDate(localISOTime);
+      } else {
+        setScheduledDate("");
+      }
+    } else {
+      setSendOption("now");
+      setScheduledDate("");
+    }
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setTitle("");
+    setMessage("");
+    setScheduledDate("");
+    setSelectedContactIds(contacts.map((c) => c.id));
+    setSelectAllContacts(true);
+  };
+
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setError("");
+    setSuccess("");
+
     if (!title.trim() || !message.trim() || !selectedConnectionId || !user) {
       setError("Preencha todos os campos obrigatórios.");
       return;
     }
 
-    if (contacts.length === 0) {
-      setError(
-        "Você precisa ter pelo menos 1 contato cadastrado para disparar.",
-      );
+    if (selectedContactIds.length === 0) {
+      setError("Selecione pelo menos 1 contato destinatário.");
       return;
     }
 
@@ -118,52 +191,100 @@ export function Broadcasts() {
       return;
     }
 
-    setSubmitting(true);
-    setError("");
-    setSuccess("");
-
     const isImmediate = sendOption === "now";
+    let scheduledAtIso = new Date().toISOString();
+
+    if (!isImmediate) {
+      if (!scheduledDate) {
+        setError("Selecione a data e hora para o agendamento.");
+        return;
+      }
+
+      const [datePart, timePart] = scheduledDate.split("T");
+      if (!datePart || !timePart) {
+        setError("Data e hora de agendamento inválidas.");
+        return;
+      }
+
+      const [year, month, day] = datePart.split("-").map(Number);
+      const [hour, minute] = timePart.split(":").map(Number);
+
+      const parsedDate = new Date(year, month - 1, day, hour, minute, 0);
+
+      if (isNaN(parsedDate.getTime())) {
+        setError("Data e hora de agendamento inválidas.");
+        return;
+      }
+
+      scheduledAtIso = parsedDate.toISOString();
+    }
+
+    setSubmitting(true);
     const status: "sent" | "scheduled" = isImmediate ? "sent" : "scheduled";
-    const scheduledAt = isImmediate
-      ? new Date().toISOString()
-      : new Date(scheduledDate).toISOString();
 
     try {
-      const payload: Omit<Broadcast, "id" | "createdAt"> = {
-        title: title.trim(),
-        message: message.trim(),
-        connectionId: conn.id,
-        connectionName: conn.name,
-        recipientsType: "all",
-        recipientIds: contacts.map((c) => c.id),
-        recipientCount: contacts.length,
-        status,
-        scheduledAt,
-        sentAt: isImmediate ? new Date().toISOString() : undefined,
-        userId: user.uid,
-      };
+      if (editingId) {
+        const updatePayload: Partial<Broadcast> = {
+          title: title.trim(),
+          message: message.trim(),
+          connectionId: conn.id,
+          connectionName: conn.name,
+          recipientIds: selectedContactIds,
+          recipientCount: selectedContactIds.length,
+          status,
+          scheduledAt: scheduledAtIso,
+          ...(isImmediate ? { sentAt: new Date().toISOString() } : {}),
+        };
 
-      const newId = await createBroadcast(payload);
+        await updateBroadcast(editingId, updatePayload);
 
-      const newBroadcastItem: Broadcast = {
-        id: typeof newId === "string" ? newId : Date.now().toString(),
-        ...payload,
-        createdAt: new Date().toISOString(),
-      };
+        setBroadcasts((prev) =>
+          prev.map((b) =>
+            b.id === editingId ? { ...b, ...updatePayload } : b,
+          ),
+        );
+        setSuccess("Campanha atualizada com sucesso!");
+        setEditingId(null);
+      } else {
+        const payload: Omit<Broadcast, "id" | "createdAt"> = {
+          title: title.trim(),
+          message: message.trim(),
+          connectionId: conn.id,
+          connectionName: conn.name,
+          recipientsType:
+            selectedContactIds.length === contacts.length ? "all" : "selected",
+          recipientIds: selectedContactIds,
+          recipientCount: selectedContactIds.length,
+          status,
+          scheduledAt: scheduledAtIso,
+          userId: user.uid,
+          ...(isImmediate ? { sentAt: new Date().toISOString() } : {}),
+        };
 
-      setBroadcasts((prev) => [newBroadcastItem, ...prev]);
-      setSuccess(
-        isImmediate
-          ? "Disparo realizado com sucesso!"
-          : "Agendamento criado com sucesso!",
-      );
+        const newId = await createBroadcast(payload);
+
+        const newBroadcastItem: Broadcast = {
+          id: typeof newId === "string" ? newId : Date.now().toString(),
+          ...payload,
+          createdAt: new Date().toISOString(),
+        };
+
+        setBroadcasts((prev) => [newBroadcastItem, ...prev]);
+        setSuccess(
+          isImmediate
+            ? "Disparo realizado com sucesso!"
+            : "Agendamento criado com sucesso!",
+        );
+      }
 
       setTitle("");
       setMessage("");
       setScheduledDate("");
+      setSelectedContactIds(contacts.map((c) => c.id));
+      setSelectAllContacts(true);
     } catch (err) {
       console.error(err);
-      setError("Erro ao salvar disparo.");
+      setError("Erro ao salvar disparo. Verifique a conexão com o banco.");
     } finally {
       setSubmitting(false);
     }
@@ -172,6 +293,7 @@ export function Broadcasts() {
   const confirmDelete = async () => {
     if (!broadcastToDelete) return;
     const targetId = broadcastToDelete.id;
+    if (editingId === targetId) cancelEdit();
     setBroadcastToDelete(null);
 
     setBroadcasts((prev) => prev.filter((b) => b.id !== targetId));
@@ -183,6 +305,13 @@ export function Broadcasts() {
       setError("Erro ao excluir registro de disparo.");
     }
   };
+
+  // Filtragem do histórico
+  const filteredBroadcasts = broadcasts.filter((b) => {
+    if (historyFilter === "sent") return b.status === "sent";
+    if (historyFilter === "scheduled") return b.status === "scheduled";
+    return true;
+  });
 
   return (
     <div className="min-h-screen bg-slate-900 text-slate-200 p-4 md:p-8 font-sans">
@@ -225,8 +354,8 @@ export function Broadcasts() {
             Disparos & Agendamentos
           </h1>
           <p className="text-slate-400">
-            Crie campanhas, selecione o canal e envie mensagens instantâneas ou
-            agendadas.
+            Crie campanhas, selecione o canal, escolha os destinatários e envie
+            mensagens instantâneas ou agendadas.
           </p>
         </header>
 
@@ -242,11 +371,24 @@ export function Broadcasts() {
           </div>
         )}
 
-        {/* Formulário de Novo Disparo */}
+        {/* Formulário de Novo Disparo / Edição */}
         <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 p-6 rounded-2xl shadow-lg space-y-4">
-          <h2 className="text-base font-semibold text-white">
-            Nova Campanha de Envio
-          </h2>
+          <div className="flex justify-between items-center">
+            <h2 className="text-base font-semibold text-white">
+              {editingId
+                ? "Editar Campanha / Agendamento"
+                : "Nova Campanha de Envio"}
+            </h2>
+            {editingId && (
+              <button
+                type="button"
+                onClick={cancelEdit}
+                className="text-xs text-slate-400 hover:text-white underline"
+              >
+                Cancelar Edição
+              </button>
+            )}
+          </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -301,6 +443,57 @@ export function Broadcasts() {
               />
             </div>
 
+            {/* Seletor de Contatos Destinatários */}
+            <div className="bg-slate-900/40 p-4 rounded-xl border border-slate-700/40 space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-xs font-medium text-slate-300">
+                  Selecionar Destinatários ({selectedContactIds.length} de{" "}
+                  {contacts.length} selecionados) *
+                </span>
+                <label className="flex items-center gap-2 text-xs text-blue-400 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={selectAllContacts}
+                    onChange={(e) => handleToggleSelectAll(e.target.checked)}
+                    className="rounded border-slate-700 bg-slate-900 text-blue-600 focus:ring-0"
+                  />
+                  Selecionar Todos
+                </label>
+              </div>
+
+              {contacts.length === 0 ? (
+                <p className="text-xs text-amber-400">
+                  Você não possui contatos cadastrados. Cadastre contatos
+                  primeiro.
+                </p>
+              ) : (
+                <div className="max-h-36 overflow-y-auto space-y-1 pr-2 divide-y divide-slate-800/50">
+                  {contacts.map((ct) => {
+                    const isChecked = selectedContactIds.includes(ct.id);
+                    return (
+                      <div
+                        key={ct.id}
+                        className="pt-2 flex items-center justify-between text-xs"
+                      >
+                        <label className="flex items-center gap-2 cursor-pointer text-slate-300">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => handleToggleContact(ct.id)}
+                            className="rounded border-slate-700 bg-slate-900 text-blue-600"
+                          />
+                          <span className="font-medium text-white">
+                            {ct.name}
+                          </span>
+                          <span className="text-slate-500">({ct.phone})</span>
+                        </label>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
               <div>
                 <label className="block text-xs font-medium text-slate-400 mb-1">
@@ -350,9 +543,9 @@ export function Broadcasts() {
 
             <div className="flex justify-between items-center pt-2">
               <span className="text-xs text-slate-400">
-                Destinatários:{" "}
+                Total Selecionado:{" "}
                 <strong className="text-white">
-                  {contacts.length} contatos
+                  {selectedContactIds.length} contatos
                 </strong>
               </span>
 
@@ -363,37 +556,76 @@ export function Broadcasts() {
               >
                 {submitting
                   ? "Processando..."
-                  : sendOption === "now"
-                    ? "Confirmar Disparo"
-                    : "Salvar Agendamento"}
+                  : editingId
+                    ? "Salvar Alterações"
+                    : sendOption === "now"
+                      ? "Confirmar Disparo"
+                      : "Salvar Agendamento"}
               </button>
             </div>
           </form>
         </div>
 
-        {/* Histórico / Lista de Envios */}
+        {/* Histórico / Lista de Envios com Filtros */}
         <div className="bg-slate-800/30 border border-slate-700/50 rounded-2xl overflow-hidden shadow-xl">
-          <div className="px-6 py-4 border-b border-slate-700/50 flex justify-between items-center bg-slate-800/50">
+          <div className="px-6 py-4 border-b border-slate-700/50 flex flex-col sm:flex-row justify-between items-center gap-3 bg-slate-800/50">
             <h2 className="font-semibold text-slate-200">
               Histórico de Disparos
             </h2>
-            <span className="bg-slate-900 text-slate-400 py-1 px-3 rounded-full text-xs font-medium border border-slate-700">
-              {broadcasts.length} registros
-            </span>
+
+            {/* Botões de Filtro */}
+            <div className="flex gap-1 bg-slate-900 p-1 rounded-xl border border-slate-700 text-xs">
+              <button
+                onClick={() => setHistoryFilter("all")}
+                className={`px-3 py-1.5 rounded-lg font-medium transition-colors ${
+                  historyFilter === "all"
+                    ? "bg-blue-600 text-white"
+                    : "text-slate-400 hover:text-white"
+                }`}
+              >
+                Todas
+              </button>
+              <button
+                onClick={() => setHistoryFilter("sent")}
+                className={`px-3 py-1.5 rounded-lg font-medium transition-colors ${
+                  historyFilter === "sent"
+                    ? "bg-emerald-600 text-white"
+                    : "text-slate-400 hover:text-white"
+                }`}
+              >
+                Enviadas
+              </button>
+              <button
+                onClick={() => setHistoryFilter("scheduled")}
+                className={`px-3 py-1.5 rounded-lg font-medium transition-colors ${
+                  historyFilter === "scheduled"
+                    ? "bg-amber-600 text-white"
+                    : "text-slate-400 hover:text-white"
+                }`}
+              >
+                Agendadas
+              </button>
+            </div>
           </div>
 
           {loading || authLoading ? (
             <div className="p-12 text-center text-slate-400 text-sm">
               Carregando históricos...
             </div>
-          ) : broadcasts.length === 0 ? (
+          ) : filteredBroadcasts.length === 0 ? (
             <div className="p-16 text-center text-slate-400 text-sm">
-              Nenhuma campanha ou agendamento registrado ainda.
+              Nenhuma campanha encontrada para este filtro.
             </div>
           ) : (
             <ul className="divide-y divide-slate-700/50">
-              {broadcasts.map((b) => {
+              {filteredBroadcasts.map((b) => {
                 const isSent = b.status === "sent";
+                const formattedDate = b.scheduledAt
+                  ? !isNaN(new Date(b.scheduledAt).getTime())
+                    ? new Date(b.scheduledAt).toLocaleString("pt-BR")
+                    : "Data inválida"
+                  : "Não agendado";
+
                 return (
                   <li
                     key={b.id}
@@ -411,7 +643,7 @@ export function Broadcasts() {
                               : "bg-amber-500/10 text-amber-400 border-amber-500/20"
                           }`}
                         >
-                          {isSent ? "Enviado" : "Agendado"}
+                          {isSent ? "Enviada" : "Agendada"}
                         </span>
                       </div>
                       <p className="text-xs text-slate-400 line-clamp-2 max-w-xl">
@@ -422,20 +654,25 @@ export function Broadcasts() {
                         <span>•</span>
                         <span>Destinatários: {b.recipientCount}</span>
                         <span>•</span>
-                        <span>
-                          Data:{" "}
-                          {new Date(b.scheduledAt).toLocaleString("pt-BR")}
-                        </span>
+                        <span>Data: {formattedDate}</span>
                       </div>
                     </div>
 
-                    <button
-                      onClick={() => setBroadcastToDelete(b)}
-                      className="p-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg transition-colors self-end sm:self-auto"
-                      title="Excluir Registro"
-                    >
-                      🗑️
-                    </button>
+                    <div className="flex items-center gap-2 self-end sm:self-auto">
+                      <button
+                        onClick={() => handleEditBroadcast(b)}
+                        className="px-3 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded-lg text-xs font-medium transition-colors"
+                      >
+                        ✏️ Editar
+                      </button>
+                      <button
+                        onClick={() => setBroadcastToDelete(b)}
+                        className="p-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg transition-colors"
+                        title="Excluir Registro"
+                      >
+                        🗑️
+                      </button>
+                    </div>
                   </li>
                 );
               })}

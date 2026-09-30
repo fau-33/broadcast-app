@@ -2,6 +2,7 @@ import {
   collection,
   addDoc,
   getDocs,
+  updateDoc,
   deleteDoc,
   doc,
   query,
@@ -32,6 +33,11 @@ export async function createBroadcast(
     createdAt: new Date().toISOString(),
   });
   return docRef.id;
+}
+
+export async function updateBroadcast(id: string, data: Partial<Broadcast>) {
+  const docRef = doc(db, "broadcasts", id);
+  await updateDoc(docRef, data);
 }
 
 export async function deleteBroadcast(id: string) {
