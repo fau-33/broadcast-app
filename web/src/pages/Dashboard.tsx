@@ -1,4 +1,5 @@
 import { signOut } from "firebase/auth";
+import { Link } from "react-router-dom";
 import { auth } from "../config/firebase";
 import { useAuth } from "../hooks/useAuth";
 
@@ -99,19 +100,26 @@ export function Dashboard() {
             Módulos do Sistema
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 hover:border-blue-500/50 transition-colors flex flex-col justify-between">
+            {/* Módulo Conexões */}
+            <Link
+              to="/connections"
+              className="bg-slate-800 p-6 rounded-xl border border-slate-700 hover:border-blue-500/50 transition-colors flex flex-col justify-between cursor-pointer group"
+            >
               <div>
                 <div className="text-2xl mb-3">📱</div>
-                <h4 className="font-semibold text-lg mb-1">Conexões</h4>
+                <h4 className="font-semibold text-lg mb-1 group-hover:text-blue-400 transition-colors">
+                  Conexões
+                </h4>
                 <p className="text-xs text-slate-400 mb-4">
                   Cadastre e gerencie as contas/números de envio de mensagens.
                 </p>
               </div>
               <span className="text-xs font-semibold text-blue-400">
-                Em breve →
+                Acessar Módulo →
               </span>
-            </div>
+            </Link>
 
+            {/* Módulo Contatos */}
             <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 hover:border-blue-500/50 transition-colors flex flex-col justify-between">
               <div>
                 <div className="text-2xl mb-3">👥</div>
@@ -120,11 +128,12 @@ export function Dashboard() {
                   Importe e estruture sua lista de contatos para transmissões.
                 </p>
               </div>
-              <span className="text-xs font-semibold text-blue-400">
+              <span className="text-xs font-semibold text-slate-500">
                 Em breve →
               </span>
             </div>
 
+            {/* Módulo Disparos */}
             <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 hover:border-blue-500/50 transition-colors flex flex-col justify-between">
               <div>
                 <div className="text-2xl mb-3">💬</div>
@@ -135,7 +144,7 @@ export function Dashboard() {
                   Crie textos, escolha os destinatários e agende os envios.
                 </p>
               </div>
-              <span className="text-xs font-semibold text-blue-400">
+              <span className="text-xs font-semibold text-slate-500">
                 Em breve →
               </span>
             </div>

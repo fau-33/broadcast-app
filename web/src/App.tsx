@@ -4,6 +4,7 @@ import { AuthProvider } from "./contexts/AuthContext";
 import { useAuth } from "./hooks/useAuth";
 import { Login } from "./pages/Login";
 import { Dashboard } from "./pages/Dashboard";
+import { Connections } from "./pages/Connections";
 import "./index.css";
 
 function PrivateRoute({ children }: { children: ReactNode }) {
@@ -52,6 +53,14 @@ export function App() {
             element={
               <PrivateRoute>
                 <Dashboard />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/connections"
+            element={
+              <PrivateRoute>
+                <Connections />
               </PrivateRoute>
             }
           />
