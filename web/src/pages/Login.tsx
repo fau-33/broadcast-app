@@ -3,39 +3,76 @@ import { useNavigate } from "react-router-dom";
 import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
+  signOut,
 } from "firebase/auth";
 import { auth } from "../config/firebase";
 import { useAuth } from "../hooks/useAuth";
 
+/**
+ * Componente de autenticação (Login e Registro)
+ *
+ * Responsabilidades:
+ * - Gerenciar o estado de alternância entre telas de login e registro
+ * - Validar credenciais e fazer autenticação via Firebase Auth
+ * - Redirecionar usuários autenticados para a dashboard
+ * - Exibir mensagens de erro claras e amigáveis ao usuário
+ *
+ * Fluxo:
+ * 1. Registro: Cria conta → Faz logout automático → Redireciona para login
+ * 2. Login: Valida credenciais → Se OK, redireciona para dashboard
+ */
 export function Login() {
   const [isRegister, setIsRegister] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
 
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  // Se o usuário já estiver logado, redireciona para a Dashboard
+  /**
+   * Hook: Redireciona usuários já autenticados para a dashboard
+   * Útil para evitar acesso à página de login após login bem-sucedido
+   */
   useEffect(() => {
     if (user) {
       navigate("/");
     }
   }, [user, navigate]);
 
+  /**
+   * Manipula o envio do formulário de login ou registro
+   *
+   * @param e - Evento do formulário
+   */
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
+    setSuccessMessage("");
     setLoading(true);
 
     try {
       if (isRegister) {
+        // Fluxo de REGISTRO
         await createUserWithEmailAndPassword(auth, email, password);
+
+        // Faz logout imediato após criar conta (força novo login)
+        await signOut(auth);
+
+        // Mensagem de sucesso e alternância para tela de login
+        setSuccessMessage(
+          "✓ Conta criada com sucesso! Faça login para continuar.",
+        );
+        setEmail("");
+        setPassword("");
+        setIsRegister(false);
       } else {
+        // Fluxo de LOGIN
         await signInWithEmailAndPassword(auth, email, password);
+        navigate("/");
       }
-      navigate("/");
     } catch (err: unknown) {
       console.error("Erro do Firebase:", err);
 
@@ -67,6 +104,7 @@ export function Login() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-900 text-white p-4">
       <div className="w-full max-w-md bg-slate-800 p-8 rounded-xl shadow-lg border border-slate-700">
+        {/* Cabeçalho da página */}
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold mb-2">🚀 Broadcast App</h1>
           <p className="text-slate-400 text-sm">
@@ -76,12 +114,21 @@ export function Login() {
           </p>
         </div>
 
+        {/* Exibe mensagens de erro */}
         {error && (
           <div className="bg-red-500/10 border border-red-500/50 text-red-400 text-sm p-3 rounded-lg mb-6 text-center">
             {error}
           </div>
         )}
 
+        {/* Exibe mensagens de sucesso */}
+        {successMessage && (
+          <div className="bg-green-500/10 border border-green-500/50 text-green-400 text-sm p-3 rounded-lg mb-6 text-center">
+            {successMessage}
+          </div>
+        )}
+
+        {/* Formulário de autenticação */}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-xs font-medium text-slate-300 mb-1">
@@ -120,6 +167,7 @@ export function Login() {
           </button>
         </form>
 
+        {/* Alternar entre Login e Registro */}
         <div className="mt-6 text-center text-xs text-slate-400">
           {isRegister ? "Já possui uma conta?" : "Ainda não tem conta?"}
           <button
@@ -127,6 +175,7 @@ export function Login() {
             onClick={() => {
               setIsRegister(!isRegister);
               setError("");
+              setSuccessMessage("");
             }}
             className="ml-1 text-blue-400 hover:underline font-semibold cursor-pointer"
           >
