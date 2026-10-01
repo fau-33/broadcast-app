@@ -1,0 +1,32 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Regra auxiliar: verifica se o usuário está autenticado
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Regra auxiliar: garante que o usuário só acesse/escreva seus próprios dados
+    function isOwner() {
+      return isAuthenticated() && (
+        resource == null ? request.resource.data.userId == request.auth.uid : resource.data.userId == request.auth.uid
+      );
+    }
+
+    // Coleção plana de Conexões
+    match /connections/{connectionId} {
+      allow read, write: if isOwner();
+    }
+
+    // Coleção plana de Contatos
+    match /contacts/{contactId} {
+      allow read, write: if isOwner();
+    }
+
+    // Coleção plana de Disparos/Campanhas
+    match /broadcasts/{broadcastId} {
+      allow read, write: if isOwner();
+    }
+  }
+}
