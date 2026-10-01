@@ -74,7 +74,7 @@ export const getConnections = functions.https.onCall(async (request) => {
       ...doc.data(),
     }));
 
-    return { success: true, data: connections };
+    return {success: true, data: connections};
   } catch (error: unknown) {
     const message =
       error instanceof Error ? error.message : "Erro desconhecido";
@@ -108,7 +108,7 @@ export const saveConnection = functions.https.onCall(async (request) => {
   }
 
   const userId = auth.uid;
-  const { name, phone, status } = request.data as {
+  const {name, phone, status} = request.data as {
     name: string;
     phone: string;
     status?: string;
@@ -131,7 +131,7 @@ export const saveConnection = functions.https.onCall(async (request) => {
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
-    return { success: true, id: newConnRef.id };
+    return {success: true, id: newConnRef.id};
   } catch (error: unknown) {
     const message =
       error instanceof Error ? error.message : "Erro desconhecido";
@@ -188,7 +188,7 @@ export const getContacts = functions.https.onCall(async (request) => {
       ...doc.data(),
     }));
 
-    return { success: true, data: contacts };
+    return {success: true, data: contacts};
   } catch (error: unknown) {
     const message =
       error instanceof Error ? error.message : "Erro desconhecido";
@@ -222,7 +222,7 @@ export const saveContact = functions.https.onCall(async (request) => {
   }
 
   const userId = auth.uid;
-  const { name, phone, email } = request.data as {
+  const {name, phone, email} = request.data as {
     name: string;
     phone: string;
     email?: string;
@@ -245,7 +245,7 @@ export const saveContact = functions.https.onCall(async (request) => {
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
-    return { success: true, id: newContactRef.id };
+    return {success: true, id: newContactRef.id};
   } catch (error: unknown) {
     const message =
       error instanceof Error ? error.message : "Erro desconhecido";
@@ -306,7 +306,7 @@ export const getBroadcasts = functions.https.onCall(async (request) => {
       ...doc.data(),
     }));
 
-    return { success: true, data: broadcasts };
+    return {success: true, data: broadcasts};
   } catch (error: unknown) {
     const message =
       error instanceof Error ? error.message : "Erro desconhecido";
@@ -325,7 +325,8 @@ export const getBroadcasts = functions.https.onCall(async (request) => {
  *   - message: String - Conteúdo da mensagem (obrigatório)
  *   - connectionId: String - ID da conexão a usar (obrigatório)
  *   - recipientIds: String[] - IDs dos contatos destinatários (obrigatório)
- *   - scheduledAt: String - Data/hora ISO para agendamento (opcional, padrão: agora)
+ *   - scheduledAt: String - Data/hora ISO para agendamento
+ *     (opcional, padrão: agora)
  * @returns {success: boolean, id: string} ID do documento broadcast criado
  * @throws HttpsError "unauthenticated" se usuário não autenticado
  * @throws HttpsError "invalid-argument" se campos obrigatórios faltando
@@ -347,7 +348,7 @@ export const saveBroadcast = functions.https.onCall(async (request) => {
   }
 
   const userId = auth.uid;
-  const { title, message, connectionId, scheduledAt, recipientIds } =
+  const {title, message, connectionId, scheduledAt, recipientIds} =
     request.data as {
       title: string;
       message: string;
@@ -376,7 +377,7 @@ export const saveBroadcast = functions.https.onCall(async (request) => {
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
-    return { success: true, id: newBroadcastRef.id };
+    return {success: true, id: newBroadcastRef.id};
   } catch (error: unknown) {
     const message =
       error instanceof Error ? error.message : "Erro desconhecido";
