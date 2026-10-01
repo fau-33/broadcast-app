@@ -154,17 +154,3 @@ Flávio Leandro do Nascimento Félix
     Live App: broadcast-app-a33bc.web.app
 
 ---
-
-<Sequence>
-  <Step subtitle="Executar na raiz do repositório local" title="1. Fazer o Commit do README.md">
-    Salve o conteúdo acima no arquivo `README.md` na raiz do seu projeto e rode no terminal:
-
-```bash
-git add README.md
-git commit -m "docs: add comprehensive README with architecture, security rules and setup guide"
-
-git push origin main
-```
-
-</Step>
-</Sequence>
